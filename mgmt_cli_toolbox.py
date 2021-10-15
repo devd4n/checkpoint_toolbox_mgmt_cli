@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 
-#### DRAFT VERSION 0.0.3
+#### DRAFT VERSION 0.0.4
+MANUAL = """
+[./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
 
-MANUAL = "mgmt_cli_toolbox.py [command] [--key value] [--key value] [-i <mgmt_cli_session_id>|-s mgmt_cli_session_id]"
+-h | --help         : show this (man) page.
+-s | --session_file : not supported yet.
+-i | --session_id   : mgmt_cli session-id to verify on which session the script should work
+                      is needed otherwise currently no features can be used.
+                      in future the session handling should be done by the script itself
+
+COMMANDs (currently supported commands):
+"""
 COMMANDS = ["uuid_where_used"]
-MAN_PAGE = MANUAL + "\n COMMANDS: " + str(COMMANDS)
+
 import subprocess
 import time
 import os
 import json
 import sys, getopt
-
-session_uid=""
 
 json_db = ["""
 { "objects" : [ {
@@ -154,26 +161,43 @@ json_db = ["""
   "total" : 999
 }
 """ ]
+
+"""
+########################################################################
+#------------------------ CUSTOM PARAMETERS ---------------------------#
+########################################################################
+"""
 ## Environment Based variables
-ACCESS_POLICIES=["Global Network", "policy2 Network"]
-THREAT_POLICIES=["", ""]
+#ACCESS_POLICIES=["Global Network", "policy2 Network"]
+#THREAT_POLICIES=["", ""]
+#NAT_PACKAGES=["", ""]
+RELEVANT_OBJECTS=["TCP_SERVICE"]
 PATH_LOG_FILE="mgmt_cli_toolbox.log" # Define Log File Location if "" => it is written to stdout
 
+"""
+########################################################################
+#------------------------ STATIC PARAMETERS -------------------------------------#
+########################################################################
+"""
 ## This Parameters should only be changed if its really clear what is means
 MAX_OBJECT_PER_REQUEST=500
-TYPE_ACCESS_RULE="access-rule"
-TYPE_THREAT_RULE=""
-TYPE_HOSTS="hosts"
-TYPE_HOSTGROUPS = "groups"
-TYPE_TCP_SERVICES = "services-tcp"
-TYPE_UDP_SERVICES = "servives-udp"
-TYPE_SERVICEGROUPS = "service-groups"
+OBJ_TYPES = {
+    "HOST" : { "rep" : "host", "cli_show" : "hosts", "cli_set": "host" },
+    "HOST_GROUP" : { "rep" : "host_group", "cli_show" : "groups", "cli_set" : "group" },
+    "TCP_SERVICE" : { "rep" : "service_tcp", "cli_show" : "services-tcp", "cli_set" : "service-tcp" },
+    "UDP_SERVICE" : { "rep" : "service_udp", "cli_show" : "services-udp", "cli_set" : "service-udp" },
+    "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "hosts", "cli_set" : "host" },
+    "ACCESS_RULE": { "rep" : "access_rule", "cli_show" : "access-rulebase", "cli_set" : "access-rule" },
+    #"THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
+    #"NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
+}
+SYNTAX_SHOW = {}
 
-
-def run():
-    var_result = uuid_where_used("a0bbbc99-adef-4ef8-bb6d-defdefdefdef1")
-    print(var_result)
-
+"""
+########################################################################
+#------------------------ METHODS -------------------------------------#
+########################################################################
+"""
 def get_all_data_of_type (p_req_type, p_rulestring=""):
   log("################################################################")
   log("# get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")")
@@ -190,7 +214,7 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   var_data_dict = { "objects" : []}
   var_count_requests = 0
   while (var_last_item_index <= var_object_count):
-    log("mgmt_cli show "+ p_req_type + " " + p_rulestring + "details-level full limit 1 offset " + str(var_offset) + " --session-id " + session_uid)
+    log("mgmt_cli show "+ p_req_type + " " + p_rulestring + "details-level full limit 1 offset " + str(var_offset) + " --session-id " + "session_id")
     var_json_data = json_db[var_count_requests]
     #var_data += run_bash("echo request " + str(MAX_OBJECT_PER_REQUEST) + " data-sets") #mgmt_cli show $req_type $rulestring details-level full limit MAX_OBJECT_PER_REQUEST offset $offset -s $mgmt_cli_session_file)
     var_data_dict_tmp = json.loads(var_json_data)
@@ -213,7 +237,7 @@ def parse_obj_to_uid_dict(p_dict, p_type):
   log("################################################################")
   var_new_dict = {}
   for obj in p_dict["objects"]:
-    log(obj)
+    #log(obj)
     log("uid " + obj["uid"])
     var_uid = str(obj["uid"])
     var_new_dict[var_uid] = {}
@@ -243,30 +267,42 @@ def uuid_where_used (p_uuid):
     log("################################################################")
     log("# uuid_where_used (" + "" + "," + "" + ")")
     log("################################################################")
-    var_data = ""
-    #for var_policy in ACCESS_POLICIES:
-        #var_data += get_all_data_of_type(TYPE_ACCESS_RULE, "\"" + var_policy + "\"")
-    #for var_policy in THREAT_POLICIES:
-        #var_data += get_all_data_of_type(TYPE_THREAT_RULE, "\"" + var_policy + "\"")
-    #var_data += get_all_data_of_type(TYPE_HOSTS)
-    #var_data += get_all_data_of_type(TYPE_HOSTGROUPS)
-    #var_data += get_all_data_of_type(TYPE_SERVICEGROUPS)
-    #var_data += get_all_data_of_type(TYPE_TCP_SERVICES)
-    #var_data += get_all_data_of_type(TYPE_UDP_SERVICES)
-    combined_var_data = get_all_data_of_type(TYPE_TCP_SERVICES)
-    ##  [[TODO]]: GREP DATA name and uid for all Entries where the TAG ID resideds:
+    combined_var_data = load_all_policy_objects()
+    #combined_var_data = get_all_data_of_type(OBJ_TYPES["SERVICE_GROUP"]["cli_show"])
     log(combined_var_data)
-    log("--------------------------------------------")
-
-    for uid in combined_var_data:
-        obj = combined_var_data[p_uuid]
-        used_by_list = obj["used_by"]
-    log("--------------------------------------------")
+    # Retrieve all used_by uuids for the given uid
+    used_by_list = combined_var_data[p_uuid]["used_by"]
     return used_by_list
 
-def object_by_uid (p_uid):
-    log("nothing")
+def load_all_policy_objects ():
+    log("################################################################")
+    log("# load_all_policy_objects (" + "" + "," + "" + ")")
+    log("################################################################")
+    var_data = {}
+    for var_type in RELEVANT_OBJECTS:
+        if var_type == "ACCESS_RULE":
+            log("load Access Policy...")
+        elif var_type == "THREAT_RULE":
+            log("load Threat Policy...")
+            #for var_policy in THREAT_POLICIES:
+            #    var_data += get_all_data_of_type(TYPE_THREAT_RULE, "\"" + var_policy + "\"")
+        else:
+            log("load Objects of Type:" + var_type + "...")
+            var_data = merge_dicts(var_data, get_all_data_of_type(var_type, ""))
+    return var_data
 
+def object_by_uid (p_uid):
+    log("################################################################")
+    log("# object_by_uid (" + "" + "," + "" + ")")
+    log("################################################################")
+    log("this function is not implemented yet")
+
+
+"""
+########################################################################
+#------------------------ HELPERS -------------------------------------#
+########################################################################
+"""
 def run_bash (p_command):
   var_run = subprocess.Popen(["/bin/bash", "-c", p_command], stdout=subprocess.PIPE)
   var_output = var_run.communicate()[0].decode("utf-8")
@@ -291,23 +327,46 @@ def clear_log ():
     else:    ## Show an error ##
         print("Error: %s file not found" % PATH_LOG_FILE)
 
+
+"""
+########################################################################
+#------------------------ PYTHON - HELPERS ----------------------------#
+########################################################################
+"""
+def merge_dicts(*dict_args):
+    """
+    Given any number of dictionaries, shallow copy and merge into a new dict,
+    precedence goes to key-value pairs in latter dictionaries.
+    """
+    result = {}
+    for dictionary in dict_args:
+        result.update(dictionary)
+    return result
+
+"""
+########################################################################
+#------------------------ CLI HANDLING --------------------------------#
+########################################################################
+"""
+
 def main (argv):
+  var_man_page = MANUAL + str(COMMANDS)
   var_mgmt_cli_session_id = ""
   try:
-    opts, args = getopt.getopt(argv,"hi:s:c:",['help', 'session-id=', 'session_file=', 'command='])
+    opts, args = getopt.getopt(argv,"hi:s:c:",['help', 'session_id=', 'session_file=', 'command='])
   except getopt.GetoptError:
-    print(MAN_PAGE)
+    print(var_man_page)
     sys.exit(2)
   for opt, arg in opts:
     log("opt -> " + str(opt))
     log("arg -> " + str(arg))
     log("args -> " + str(args))
     if opt in ('-h', "--help"):
-      print(MAN_PAGE)
+      print(var_man_page)
       sys.exit()
-    if opt in ("-i", "--mgmt_cli_session_id"):
+    if opt in ("-i", "--session_id"):
       var_mgmt_cli_session_id = arg
-    #elif opt in ("-s", "--mgmt_cli_session_file"):
+    #elif opt in ("-s", "--session_file"):
     #  var_mgmt_cli_session_id = ""
     if arg in COMMANDS:
       clear_log()
