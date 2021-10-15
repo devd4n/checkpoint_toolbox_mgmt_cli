@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-#### DRAFT VERSION 0.0.1
+#### DRAFT VERSION 0.0.2
 
 import subprocess
 import time
@@ -8,7 +8,8 @@ import os
 import json
 
 session_uid=""
-test_json="""
+
+json_db = ["""
 { "objects" : [ {
     "uid" : "97aeb44f-9aea-11d5-bd16-0090272ccb30",
     "name" : "AOL",
@@ -91,7 +92,7 @@ test_json="""
     "port" : "1494"
   }, {
     "uid" : "97aeb451-9aea-11d5-bd16-0090272ccb30",
-    "name" : "ConnectedOnLine",
+    "name" : "duplicate ConnectedOnLine",
     "type" : "service-tcp",
     "domain" : {
       "domain-type" : "data domain",
@@ -111,11 +112,9 @@ test_json="""
     "port" : "18262"
   } ], "from" : 1,
   "to" : 500,
-  "total" : 1999
+  "total" : 999
 }
-"""
-
-test_json2="""
+""", """
 { "objects" : [ {
     "uid" : "11111111111111",
     "name" : "de",
@@ -126,6 +125,16 @@ test_json2="""
       "name" : "Check Point Data"
     },
     "port" : "5110"
+  }, {
+    "uid" : "97aeb451-9aea-11d5-bd16-0090272ccb30",
+    "name" : "duplicate ConnectedOnLine",
+    "type" : "service-tcp",
+    "domain" : {
+      "domain-type" : "data domain",
+      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
+      "name" : "Check Point Data"
+    },
+    "port" : "16384"
   }, {
     "uid" : "aaaaaaaaea-11d5-bd16-0090272ccb30",
     "name" : "AP-Defedfdfernder",
@@ -138,11 +147,11 @@ test_json2="""
     "port" : "2626"
   } ], "from" : 501,
   "to" : 503,
-  "total" : 1999
+  "total" : 999
 }
-"""
+""" ]
 ## Environment Based variables
-ACCESS_POLICIES=["Global Network", "Subpolicy1 Network", "policy2 Network"]
+ACCESS_POLICIES=["Global Network", "policy2 Network"]
 THREAT_POLICIES=["", ""]
 PATH_LOG_FILE="" # Define Log File Location if "" => it is written to stdout
 
@@ -162,30 +171,53 @@ def run():
     print(var_result)
 
 def get_all_data_of_type (p_req_type, p_rulestring=""):
+  log("################################################################")
+  log("# get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")")
+  log("################################################################")
   #$rulestring = ""    # This variable is only needed for Rule specific requests
   var_offset = 0
   var_last_item_index = 0
   var_data = ""
   # get number of Objects of the given req_type
     #run_mgmt_cli(session_uid, p_req_type + " " + p_rulestring + " limit 1 ", "")
-  var_mgmt_feedback = json.loads(test_json)
+  var_mgmt_feedback = json.loads(json_db[0])
   var_object_count = var_mgmt_feedback['total']
-  log((p_req_type + " : " + str(var_object_count)))
-  #mgmt_cli_total_res.split(" ")[1]
   # make mgmt_cli show commands es much as needed
-  #mgmt_cli show p_req_type p_rulestring limit 1 -s var_mgmt_cli_session_file | grep "from")
-  ## THIS MUST BE in the next WHILE STATEMENT fetch all object arrays in each other:
-  var_data_dict1 = json.loads(test_json)
-  var_data_dict2 = json.loads(test_json2)
-  for obj in var_data_dict2['objects']:
-      var_data_dict1['objects'].append(obj)
-  var_data_dict = var_data_dict1
+  var_data_dict = { "objects" : []}
+  var_count_requests = 0
   while (var_last_item_index <= var_object_count):
     log("mgmt_cli show "+ p_req_type + " " + p_rulestring + " limit 1 offset " + str(var_offset) + " --session-id " + session_uid)
-    var_data += run_bash("echo request " + str(MAX_OBJECT_PER_REQUEST) + " data-sets") #mgmt_cli show $req_type $rulestring details-level full limit MAX_OBJECT_PER_REQUEST offset $offset -s $mgmt_cli_session_file)
+    var_json_data = json_db[var_count_requests]
+    #var_data += run_bash("echo request " + str(MAX_OBJECT_PER_REQUEST) + " data-sets") #mgmt_cli show $req_type $rulestring details-level full limit MAX_OBJECT_PER_REQUEST offset $offset -s $mgmt_cli_session_file)
+    var_data_dict_tmp = json.loads(var_json_data)
+    log("keys" + str(var_data_dict_tmp.keys()))
+    #log("var_data_dict_tmp " + str(var_data_dict_tmp))
+    for obj in var_data_dict_tmp['objects']:
+        var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
     var_offset += MAX_OBJECT_PER_REQUEST
     var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
+    var_count_requests += 1
+  log("announced data count: " + str(var_object_count))
+  log("retrieved data count: " + str(len(var_data_dict['objects'])))
+  var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
   return var_data_dict
+
+
+def parse_obj_to_uid_dict(p_dict, p_pre_key):
+  log("################################################################")
+  log("# parse_obj_to_uid_dict (" + "" + "," + "" + ")")
+  log("################################################################")
+  var_new_dict = {}
+  var_new_dict[p_pre_key] = {}
+  for obj in p_dict["objects"]:
+    log(obj)
+    log("uid " + obj["uid"])
+    var_uid = str(obj["uid"])
+    var_new_dict[p_pre_key][var_uid] = obj
+  log("parsed new dict " + str(var_new_dict))
+
+
+
 
 def tags_where_used ():
     var_data = ""
@@ -200,7 +232,6 @@ def tags_where_used ():
     #var_data += get_all_data_of_type(TYPE_UDP_SERVICES)
     var_data = get_all_data_of_type(TYPE_TCP_SERVICES)
     ##  [[TODO]]: GREP DATA name and uid for all Entries where the TAG ID resideds:
-
     return var_data
 
 def run_bash (p_command):
@@ -221,4 +252,3 @@ def log (p_logstring):
     print(p_logstring)
 
 run()
-
