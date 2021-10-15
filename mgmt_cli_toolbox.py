@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
-#### DRAFT VERSION 0.0.2
+#### DRAFT VERSION 0.0.3
 
+MANUAL = "mgmt_cli_toolbox.py [command] [--key value] [--key value] [-i <mgmt_cli_session_id>|-s mgmt_cli_session_id]"
+COMMANDS = ["uuid_where_used"]
+MAN_PAGE = MANUAL + "\n COMMANDS: " + str(COMMANDS)
 import subprocess
 import time
 import os
 import json
+import sys, getopt
 
 session_uid=""
 
@@ -116,7 +120,7 @@ json_db = ["""
 }
 """, """
 { "objects" : [ {
-    "uid" : "11111111111111",
+    "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef1",
     "name" : "de",
     "type" : "service-tcp",
     "domain" : {
@@ -141,7 +145,7 @@ json_db = ["""
     "type" : "service-tcp",
     "domain" : {
       "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
+      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef1",
       "name" : "Check Point Data"
     },
     "port" : "2626"
@@ -153,7 +157,7 @@ json_db = ["""
 ## Environment Based variables
 ACCESS_POLICIES=["Global Network", "policy2 Network"]
 THREAT_POLICIES=["", ""]
-PATH_LOG_FILE="" # Define Log File Location if "" => it is written to stdout
+PATH_LOG_FILE="mgmt_cli_toolbox.log" # Define Log File Location if "" => it is written to stdout
 
 ## This Parameters should only be changed if its really clear what is means
 MAX_OBJECT_PER_REQUEST=500
@@ -167,7 +171,7 @@ TYPE_SERVICEGROUPS = "service-groups"
 
 
 def run():
-    var_result = tags_where_used()
+    var_result = uuid_where_used("a0bbbc99-adef-4ef8-bb6d-defdefdefdef1")
     print(var_result)
 
 def get_all_data_of_type (p_req_type, p_rulestring=""):
@@ -186,7 +190,7 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   var_data_dict = { "objects" : []}
   var_count_requests = 0
   while (var_last_item_index <= var_object_count):
-    log("mgmt_cli show "+ p_req_type + " " + p_rulestring + " limit 1 offset " + str(var_offset) + " --session-id " + session_uid)
+    log("mgmt_cli show "+ p_req_type + " " + p_rulestring + "details-level full limit 1 offset " + str(var_offset) + " --session-id " + session_uid)
     var_json_data = json_db[var_count_requests]
     #var_data += run_bash("echo request " + str(MAX_OBJECT_PER_REQUEST) + " data-sets") #mgmt_cli show $req_type $rulestring details-level full limit MAX_OBJECT_PER_REQUEST offset $offset -s $mgmt_cli_session_file)
     var_data_dict_tmp = json.loads(var_json_data)
@@ -200,26 +204,45 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   log("announced data count: " + str(var_object_count))
   log("retrieved data count: " + str(len(var_data_dict['objects'])))
   var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
+  var_data_dict = add_used_by(var_data_dict)
   return var_data_dict
 
-
-def parse_obj_to_uid_dict(p_dict, p_pre_key):
+def parse_obj_to_uid_dict(p_dict, p_type):
   log("################################################################")
   log("# parse_obj_to_uid_dict (" + "" + "," + "" + ")")
   log("################################################################")
   var_new_dict = {}
-  var_new_dict[p_pre_key] = {}
   for obj in p_dict["objects"]:
     log(obj)
     log("uid " + obj["uid"])
     var_uid = str(obj["uid"])
-    var_new_dict[p_pre_key][var_uid] = obj
+    var_new_dict[var_uid] = {}
+    var_new_dict[var_uid]["obj"] = obj
+    var_new_dict[var_uid]["type"] = p_type
+    var_new_dict[var_uid]["as_string"] = str(obj)
   log("parsed new dict " + str(var_new_dict))
+  return var_new_dict
 
 
+def add_used_by (p_data_dir):
+    log("################################################################")
+    log("# add_used_by (" + "" + "," + "" + ")")
+    log("################################################################")
+    var_data = p_data_dir
+    for i_key in p_data_dir:
+        var_data[i_key]["used_by"] = []
+        for i_key_sub in p_data_dir:
+            var_string = var_data[i_key_sub]["as_string"]
+            if i_key in var_string:
+                if not i_key is i_key_sub:
+                    var_data[i_key]["used_by"].append(i_key_sub)
+    log(var_data)
+    return var_data
 
-
-def tags_where_used ():
+def uuid_where_used (p_uuid):
+    log("################################################################")
+    log("# uuid_where_used (" + "" + "," + "" + ")")
+    log("################################################################")
     var_data = ""
     #for var_policy in ACCESS_POLICIES:
         #var_data += get_all_data_of_type(TYPE_ACCESS_RULE, "\"" + var_policy + "\"")
@@ -230,9 +253,19 @@ def tags_where_used ():
     #var_data += get_all_data_of_type(TYPE_SERVICEGROUPS)
     #var_data += get_all_data_of_type(TYPE_TCP_SERVICES)
     #var_data += get_all_data_of_type(TYPE_UDP_SERVICES)
-    var_data = get_all_data_of_type(TYPE_TCP_SERVICES)
+    combined_var_data = get_all_data_of_type(TYPE_TCP_SERVICES)
     ##  [[TODO]]: GREP DATA name and uid for all Entries where the TAG ID resideds:
-    return var_data
+    log(combined_var_data)
+    log("--------------------------------------------")
+
+    for uid in combined_var_data:
+        obj = combined_var_data[p_uuid]
+        used_by_list = obj["used_by"]
+    log("--------------------------------------------")
+    return used_by_list
+
+def object_by_uid (p_uid):
+    log("nothing")
 
 def run_bash (p_command):
   var_run = subprocess.Popen(["/bin/bash", "-c", p_command], stdout=subprocess.PIPE)
@@ -246,9 +279,41 @@ def run_mgmt_cli (p_session_uid, p_command, p_after_command):
 def log (p_logstring):
   if (PATH_LOG_FILE != ""):
     f = open(PATH_LOG_FILE, "a")
-    f.write(p_logstring)
+    f.write(str(p_logstring) + "\n")
     f.close()
   else:
     print(p_logstring)
 
-run()
+def clear_log ():
+    ## If file exists, delete it ##
+    if os.path.isfile(PATH_LOG_FILE):
+        os.remove(PATH_LOG_FILE)
+    else:    ## Show an error ##
+        print("Error: %s file not found" % PATH_LOG_FILE)
+
+def main (argv):
+  var_mgmt_cli_session_id = ""
+  try:
+    opts, args = getopt.getopt(argv,"hi:s:c:",['help', 'session-id=', 'session_file=', 'command='])
+  except getopt.GetoptError:
+    print(MAN_PAGE)
+    sys.exit(2)
+  for opt, arg in opts:
+    log("opt -> " + str(opt))
+    log("arg -> " + str(arg))
+    log("args -> " + str(args))
+    if opt in ('-h', "--help"):
+      print(MAN_PAGE)
+      sys.exit()
+    if opt in ("-i", "--mgmt_cli_session_id"):
+      var_mgmt_cli_session_id = arg
+    #elif opt in ("-s", "--mgmt_cli_session_file"):
+    #  var_mgmt_cli_session_id = ""
+    if arg in COMMANDS:
+      clear_log()
+      log("deleted_old_log_file")
+      result = globals()[str(arg)](args[0])
+      print(result)
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
