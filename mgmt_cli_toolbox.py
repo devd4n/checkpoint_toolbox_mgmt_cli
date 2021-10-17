@@ -18,13 +18,15 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.0.6
+#### DRAFT VERSION 0.0.7
 
 MANUAL = """
 [./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
 
 -h | --help         : show this (man) page.
--s | --session_file : not supported yet.
+-l | --local_db     : load data from file defined via DATABASE_STORE_PATH
+-p | --pull         : pull data via mgmt_cli and override DATABASE_STORE_PATH
+-s | --session_file : !!! not supported yet.
 -i | --session_id   : mgmt_cli session-id to verify on which session the script should work
                       is needed otherwise currently no features can be used.
                       in future the session handling should be done by the script itself
@@ -230,16 +232,37 @@ LOG_LVL_INV = {
     9 : "TRACE",
 }
 GLOBAL_STORAGE_DICT = {}
+SESSION_ID = ""
 
 """
 ########################################################################
 #---------------------- API METHODS -----------------------------------#
 ########################################################################
 """
-
-def load_all ():
+def uuid_where_used (p_uuid):
     log("################################################################")
-    log("# load_all (" + "" + "," + "" + ")")
+    log("# uuid_where_used (" + "" + "," + "" + ")")
+    log("################################################################")
+    #pull_all()
+    #combined_var_data = get_all_data_of_type(OBJ_TYPES["SERVICE_GROUP"]["cli_show"])
+    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT))
+    # Retrieve all used_by uuids for the given uid
+    try:
+        log("p_uuid: " + p_uuid)
+        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["used_by"]
+        return used_by_list
+    except KeyError:
+        log("invalid uuid - uid" + str(p_uuid) + " can't be found in data store", LOG_LVL["ERROR"])
+
+
+"""
+########################################################################
+#---------------------- PRIVATE METHODS -------------------------------#
+########################################################################
+"""
+def pull_all ():
+    log("################################################################")
+    log("# pull_all (" + "" + "," + "" + ")")
     log("################################################################")
     var_data = {}
     for var_type in RELEVANT_OBJECTS:
@@ -255,27 +278,6 @@ def load_all ():
     GLOBAL_STORAGE_DICT["by_uid"] = var_data
     save()
 
-def uuid_where_used (p_uuid):
-    log("################################################################")
-    log("# uuid_where_used (" + "" + "," + "" + ")")
-    log("################################################################")
-    load_all()
-    #combined_var_data = get_all_data_of_type(OBJ_TYPES["SERVICE_GROUP"]["cli_show"])
-    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT))
-    # Retrieve all used_by uuids for the given uid
-    try:
-        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["used_by"]
-        return used_by_list
-    except KeyError:
-        log("invalid uuid - uid" + str(p_uuid) + " can't be found in data store", LOG_LVL["ERROR"])
-
-
-
-"""
-########################################################################
-#---------------------- PRIVATE METHODS -------------------------------#
-########################################################################
-"""
 def get_all_data_of_type (p_req_type, p_rulestring=""):
   log("################################################################")
   log("# get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")")
@@ -345,12 +347,21 @@ def object_by_uid (p_uid):
     log("################################################################")
     log("this function is not implemented yet")
 
-
 def save ():
+    log("################################################################")
+    log("# save (" + "" + "," + "" + ")")
+    log("################################################################")
     save_data_to_file (DATABASE_STORE_PATH, GLOBAL_STORAGE_DICT)
 
-def load ():
-    GLOBAL_STORAGE_DICT = load_data_from_file()
+def load_local ():
+    log("################################################################")
+    log("# load_local (" + "" + "," + "" + ")")
+    log("################################################################")
+    global GLOBAL_STORAGE_DICT
+    log("load data from: " + DATABASE_STORE_PATH)
+    GLOBAL_STORAGE_DICT = load_data_from_file(DATABASE_STORE_PATH)
+    log("number of loaded dicts: " + str(len(GLOBAL_STORAGE_DICT)))
+
 
 """
 ########################################################################
@@ -370,7 +381,7 @@ def save_data_to_file (p_file_name, p_dict):
  json.dump( p_dict, open( p_file_name, 'w' ) )
 
 def load_data_from_file (p_file_name):
- json.load( open(p_file_name) )
+ return json.load(open(p_file_name))
 
 def log (p_logstring, p_LOG_LVL=9):
   if p_LOG_LVL <= LOG_LVL[LOG_LEVEL]:
@@ -423,16 +434,14 @@ def merge_dicts(*dict_args):
 """
 
 def main (argv):
-  var_man_page = MANUAL + str(COMMANDS)
-  var_mgmt_cli_session_id = ""
-  try:
-    opts, args = getopt.getopt(argv,"hi:s:c:",['help', 'session_id=', 'session_file=', 'command='])
-  except getopt.GetoptError:
-    log("The parameters and arguments aren't correct" + LOG_LVL["ERROR"])
-    print(var_man_page)
-    sys.exit(2)
-  try:
-    create_output_folder()
+    var_man_page = MANUAL + str(COMMANDS)
+    SESSION_ID = ""
+    try:
+      opts, args = getopt.getopt(argv,"hlpi:s:c:",['help', 'session_id=', 'session_file=', 'command='])
+    except getopt.GetoptError:
+      log("The parameters and arguments aren't correct" + LOG_LVL["ERROR"])
+      print(var_man_page)
+      sys.exit(2)
     for opt, arg in opts:
       log("opt -> " + str(opt))
       log("arg -> " + str(arg))
@@ -440,22 +449,30 @@ def main (argv):
       if opt in ('-h', "--help"):
         print(var_man_page)
         sys.exit()
-      if opt in ("-i", "--session_id"):
-        var_mgmt_cli_session_id = arg
-      #elif opt in ("-s", "--session_file"):
-      #  var_mgmt_cli_session_id = ""
-      if opt in ("-c", "--command"):
-        if arg in COMMANDS:
-          clear_log()
-          log("deleted_old_log_file")
-          result = globals()[str(arg)](args[0])
-          print(result)
-  except IndexError:
-      log("parameters and arguments are missing", LOG_LVL["ERROR"])
-  except BaseException as err:
-      log(str("FATAL ERROR: {0}".format(err)), LOG_LVL["FATAL"])
-      log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
-      sys.exit(2)
+      log("start")
+      create_output_folder()
+      try:
+          if opt in ("-l", "--local_db"):
+              load_local()
+          elif opt in ("-p", "--pull"):
+              pull_all()
+          if opt in ("-i", "--session_id"):
+             SESSION_ID = arg
+          #elif opt in ("-s", "--session_file"):
+          #  SESSION_ID = ""
+          if opt in ("-c", "--command"):
+            if arg in COMMANDS:
+              clear_log()
+              log("deleted_old_log_file")
+              print(GLOBAL_STORAGE_DICT)
+              result = globals()[str(arg)](args[0])
+              print(result)
+      except IndexError:
+        log("parameters and arguments are missing", LOG_LVL["ERROR"])
+      except BaseException as err:
+        log(str("FATAL ERROR: {0}".format(err)), LOG_LVL["FATAL"])
+        log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
+        sys.exit(2)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
