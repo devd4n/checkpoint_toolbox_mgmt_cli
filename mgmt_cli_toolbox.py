@@ -388,7 +388,7 @@ def run_bash (p_command):
   return var_output
 
 def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
-    var_command = "mgmt_cli" + " " + p_action + " " + p_command + " --session-id " + p_session_uid + " " + p_after_command + "--format json"
+    var_command = "mgmt_cli" + " " + p_action + " " + p_command + " --session-id " + p_session_uid + p_after_command + "--format json"
     log(var_command, LOG_LVL["DEBUG"])
     return run_bash(var_command)
 
