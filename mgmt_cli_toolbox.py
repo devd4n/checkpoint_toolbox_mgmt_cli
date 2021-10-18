@@ -286,12 +286,13 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   #rulestring = ""    # This variable is only needed for Rule specific requests
   var_offset = 0
   var_last_item_index = 0
+  print("----------------------------___" + str(SESSION_ID))
   # how much requests are needed to retrieve all data:
   if TEST_RUN:
       var_object_count = json.loads(json_db[0])['total']
   else:
       #try:
-          var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + "" + p_rulestring + " limit 1 "), "")
+          var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
           var_object_count = int(json.loads(var_json_data)['total'])
       #except:
         #  raise Exception('mgmt_cli retrieve data failed', 'is mgmt_cli reachable from scripts location?')
@@ -302,7 +303,7 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
     if TEST_RUN:            # only be used if no mgmt_cli reachable
         var_json_data = json_db[var_count_requests]
     else:
-        var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + "details-level full limit 1 offset " + str(var_offset)
+        var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
         log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
         var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
     # Parse json data from mgmt_cli string
@@ -387,7 +388,7 @@ def run_bash (p_command):
   return var_output
 
 def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
-    var_command = "mgmt_cli" + " " + p_action + " " + p_command + "--session-id " + p_session_uid + " " + p_after_command
+    var_command = "mgmt_cli" + " " + p_action + " " + p_command + "--session-id " + p_session_uid + " " + p_after_command + "--format json"
     log(var_command, LOG_LVL["DEBUG"])
     return run_bash(var_command)
 
@@ -449,7 +450,6 @@ def merge_dicts(*dict_args):
 
 def main (argv):
     var_man_page = MANUAL + str(COMMANDS)
-    SESSION_ID = ""
     try:
       opts, args = getopt.getopt(argv,"hlpi:s:c:",['help', 'session_id=', 'session_file=', 'command='])
     except getopt.GetoptError:
@@ -466,12 +466,13 @@ def main (argv):
       log("start")
       create_output_folder()
       try:
+          if opt in ("-i", "--session_id"):
+             global SESSION_ID
+             SESSION_ID = arg
           if opt in ("-l", "--local_db"):
               load_local()
           elif opt in ("-p", "--pull"):
               pull_all()
-          if opt in ("-i", "--session_id"):
-             SESSION_ID = arg
           #elif opt in ("-s", "--session_file"):
           #  SESSION_ID = ""
           if opt in ("-c", "--command"):
@@ -483,10 +484,10 @@ def main (argv):
               print(result)
       except IndexError:
         log("parameters and arguments are missing", LOG_LVL["ERROR"])
-      except BaseException as err:
-        log(str("FATAL ERROR: " + str(err)), LOG_LVL["FATAL"])
-        log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
-        sys.exit(2)
+      #except BaseException as err:
+        #log(str("FATAL ERROR: " + str(err)), LOG_LVL["FATAL"])
+        #log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
+        #sys.exit(2)
 
 if __name__ == "__main__":
   main(sys.argv[1:])
