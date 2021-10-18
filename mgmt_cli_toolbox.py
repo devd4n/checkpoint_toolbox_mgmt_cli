@@ -312,9 +312,9 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
     #log("var_data_dict_tmp " + str(var_data_dict_tmp))
     for obj in var_data_dict_tmp['objects']:
         var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
-        var_offset += MAX_OBJECT_PER_REQUEST
-        var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
-        var_count_requests += 1
+    var_offset += MAX_OBJECT_PER_REQUEST
+    var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
+    var_count_requests += 1
     log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
     log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
   var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
