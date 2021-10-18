@@ -18,7 +18,7 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.0.7
+#### DRAFT VERSION 0.0.8
 
 MANUAL = """
 [./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
@@ -233,6 +233,7 @@ LOG_LVL_INV = {
 }
 GLOBAL_STORAGE_DICT = {}
 SESSION_ID = ""
+TEST_RUN = 0
 
 """
 ########################################################################
@@ -285,30 +286,41 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   #rulestring = ""    # This variable is only needed for Rule specific requests
   var_offset = 0
   var_last_item_index = 0
-  #run_mgmt_cli(session_uid, p_req_type + " " + p_rulestring + " limit 1 ", "")
-  var_object_count = json.loads(json_db[0])['total']
+  # how much requests are needed to retrieve all data:
+  if TEST_RUN:
+      var_object_count = json.loads(json_db[0])['total']
+  else:
+      #try:
+          var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + "" + p_rulestring + " limit 1 "), "")
+          var_object_count = int(json.loads(var_json_data)['total'])
+      #except:
+        #  raise Exception('mgmt_cli retrieve data failed', 'is mgmt_cli reachable from scripts location?')
   var_data_dict = { "objects" : []}
   var_count_requests = 0
-  # how much requests are needed to retrieve all data:
-  # var_object_count/
   # make mgmt_cli show commands es much as needed
   while (var_last_item_index <= var_object_count):
-    log("mgmt_cli show "+ p_req_type + " " + p_rulestring + "details-level full limit 1 offset " + str(var_offset) + " --session-id " + "session_id")
-    var_json_data = json_db[var_count_requests]
-    #mgmt_cli show $req_type $rulestring details-level full limit MAX_OBJECT_PER_REQUEST offset $offset -s $mgmt_cli_session_file)
+    if TEST_RUN:            # only be used if no mgmt_cli reachable
+        var_json_data = json_db[var_count_requests]
+    else:
+        var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + "details-level full limit 1 offset " + str(var_offset)
+        log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
+        var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
+    # Parse json data from mgmt_cli string
     var_data_dict_tmp = json.loads(var_json_data)
     log("keys_retrieved via cli: " + str(var_data_dict_tmp.keys()), LOG_LVL["DEBUG"])
     #log("var_data_dict_tmp " + str(var_data_dict_tmp))
     for obj in var_data_dict_tmp['objects']:
         var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
-    var_offset += MAX_OBJECT_PER_REQUEST
-    var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
-    var_count_requests += 1
-  log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
-  log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
+        var_offset += MAX_OBJECT_PER_REQUEST
+        var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
+        var_count_requests += 1
+    log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
+    log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
   var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
   var_data_dict = add_used_by(var_data_dict)
   return var_data_dict
+
+
 
 def parse_obj_to_uid_dict(p_dict, p_type):
   log("################################################################")
@@ -374,8 +386,10 @@ def run_bash (p_command):
   log(var_output)
   return var_output
 
-def run_mgmt_cli (p_session_uid, p_command, p_after_command):
-    run_bash("mgmt_cli " + p_command + "--session-id " + p_session_uid + " " + p_after_command)
+def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
+    var_command = "mgmt_cli" + " " + p_action + " " + p_command + "--session-id " + p_session_uid + " " + p_after_command
+    log(var_command, LOG_LVL["DEBUG"])
+    return run_bash(var_command)
 
 def save_data_to_file (p_file_name, p_dict):
  json.dump( p_dict, open( p_file_name, 'w' ) )
@@ -470,7 +484,7 @@ def main (argv):
       except IndexError:
         log("parameters and arguments are missing", LOG_LVL["ERROR"])
       except BaseException as err:
-        log(str("FATAL ERROR: {0}".format(err)), LOG_LVL["FATAL"])
+        log(str("FATAL ERROR: " + str(err)), LOG_LVL["FATAL"])
         log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
         sys.exit(2)
 
