@@ -18,7 +18,7 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.0.9
+#### DRAFT VERSION 0.1.0
 
 MANUAL = """
 [./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
@@ -55,7 +55,7 @@ RELEVANT_OBJECTS=["TCP_SERVICE", "UDP_SERVICE", "SERVICE_GROUP", "HOST", "HOST_G
 PATH_ROOT = "./toolbox_files/"
 DATABASE_STORE_PATH = PATH_ROOT + "db.json"
 LOG_FILE= PATH_ROOT + "" # Define Log File Location if "" => it is written to stdout
-LOG_LEVEL="DEBUG"
+LOG_LEVEL="TRACE"
 """
 ########################################################################
 #------------------------ STATIC PARAMETERS -------------------------------------#
@@ -81,6 +81,7 @@ LOG_LVL = {
     "INFO" : 7,
     "DEBUG" : 8,
     "TRACE" : 9,
+    "DETAIL-TRACE" : 10,
 }
 LOG_LVL_INV = {
     1 : "FATAL",
@@ -89,6 +90,7 @@ LOG_LVL_INV = {
     7 : "INFO",
     8 : "DEBUG",
     9 : "TRACE",
+    10 : "DETAIL-TRACE",
 }
 GLOBAL_STORAGE_DICT = {}
 SESSION_ID = ""
@@ -99,12 +101,8 @@ SESSION_ID = ""
 ########################################################################
 """
 def uuid_where_used (p_uuid):
-    log("################################################################")
-    log("# uuid_where_used (" + "" + "," + "" + ")")
-    log("################################################################")
-    #pull_all()
-    #combined_var_data = get_all_data_of_type(OBJ_TYPES["SERVICE_GROUP"]["cli_show"])
-    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT), LOG_LVL["TRACE"])
+    log("uuid_where_used (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
+    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT), LOG_LVL["DETAIL-TRACE"])
     # Retrieve all used_by uuids for the given uid
     try:
         log("p_uuid: " + p_uuid)
@@ -120,9 +118,7 @@ def uuid_where_used (p_uuid):
 ########################################################################
 """
 def pull_all ():
-    log("################################################################")
-    log("# pull_all (" + "" + "," + "" + ")")
-    log("################################################################")
+    log("pull_all (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
     var_data = {}
     for var_type in RELEVANT_OBJECTS:
         log("load Objects of Type:" + var_type + "...")
@@ -132,9 +128,7 @@ def pull_all ():
     save()
 
 def get_all_data_of_type (p_req_type, p_rulestring=""):
-  log("################################################################")
-  log("# get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")")
-  log("################################################################")
+  log("get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")", LOG_LVL["TRACE"], True)
   #rulestring = ""    # This variable is only needed for Rule specific requests
   var_offset = 0
   var_last_item_index = 0
@@ -172,54 +166,42 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
 
 
 def parse_obj_to_uid_dict(p_dict, p_type):
-  log("################################################################")
-  log("# parse_obj_to_uid_dict (" + "" + "," + "" + ")")
-  log("################################################################")
+  log("parse_obj_to_uid_dict (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
   var_new_dict = {}
   for obj in p_dict["objects"]:
-    #log(obj)
-    log("uid " + obj["uid"])
+    log("uid " + obj["uid"], LOG_LVL["DETAIL-TRACE"])
     var_uid = str(obj["uid"])
     var_new_dict[var_uid] = {}
     var_new_dict[var_uid]["obj"] = obj
     var_new_dict[var_uid]["type"] = p_type
     var_new_dict[var_uid]["as_string"] = str(obj)
-  log("parsed new dict " + str(var_new_dict))
+  log("parsed new dict " + str(var_new_dict), LOG_LVL["DETAIL-TRACE"])
   return var_new_dict
 
 
 def add_used_by (p_data_dir):
-    log("################################################################")
-    log("# add_used_by (" + "p_data_dir" + "," + "" + ")")
-    log("################################################################")
+    log("add_used_by (" + "p_data_dir" + "," + "" + ")", LOG_LVL["TRACE"], True)
     var_data = p_data_dir
     for i_key in p_data_dir:
         var_data[i_key]["used_by"] = []
         for i_key_sub in p_data_dir:
             if not i_key is i_key_sub:
               var_string = var_data[i_key_sub]["as_string"]
-              if (i_key == "9488b349-f09a-4637-bc70-e901a5d6e0d2") and (i_key_sub == "e2cd725f-eeb7-4959-a888-58bbb5ddc906"):
-                  log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["DEBUG"])
               if i_key in var_string:
+                log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["TRACE"])
                 var_data[i_key]["used_by"].append(i_key_sub)
     return var_data
 
 def object_by_uid (p_uid):
-    log("################################################################")
-    log("# object_by_uid (" + "" + "," + "" + ")")
-    log("################################################################")
+    log("# object_by_uid (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
     log("this function is not implemented yet")
 
 def save ():
-    log("################################################################")
-    log("# save (" + "" + "," + "" + ")")
-    log("################################################################")
+    log("save (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
     save_data_to_file (DATABASE_STORE_PATH, GLOBAL_STORAGE_DICT)
 
 def load_local ():
-    log("################################################################")
-    log("# load_local (" + "" + "," + "" + ")")
-    log("################################################################")
+    log("load_local (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
     global GLOBAL_STORAGE_DICT
     log("load data from: " + DATABASE_STORE_PATH)
     GLOBAL_STORAGE_DICT = load_data_from_file(DATABASE_STORE_PATH)
@@ -237,7 +219,7 @@ def run_bash (p_command):
   if var_output.startswith("Traceback"):
       log(var_output, LOG_LVL["ERROR"])
   else:
-      log(var_output, LOG_LVL["TRACE"])
+      log(var_output, LOG_LVL["DETAIL-TRACE"])
   return var_output
 
 def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
@@ -251,15 +233,20 @@ def save_data_to_file (p_file_name, p_dict):
 def load_data_from_file (p_file_name):
  return json.load(open(p_file_name))
 
-def log (p_logstring, p_LOG_LVL=9):
+def log (p_logstring, p_LOG_LVL=9, p_HEADLINE=False):
   if p_LOG_LVL <= LOG_LVL[LOG_LEVEL]:
-      p_logstring = str(get_timestamp()) + "  |" + str(LOG_LVL_INV[p_LOG_LVL]) + ("|  ") + str(p_logstring)
+      if p_HEADLINE:
+          var_log_line = str(get_timestamp()) + "  |" + str(LOG_LVL_INV[p_LOG_LVL]) + ("|  ") + "################################################################ \n"
+          var_log_line += str(get_timestamp()) + "  |" + str(LOG_LVL_INV[p_LOG_LVL]) + ("|  ") + str(p_logstring) + "\n"
+          var_log_line += str(get_timestamp()) + "  |" + str(LOG_LVL_INV[p_LOG_LVL]) + ("|  ") + "################################################################"
+      else:
+          var_log_line = str(get_timestamp()) + "  |" + str(LOG_LVL_INV[p_LOG_LVL]) + ("|  ") + str(p_logstring)
       if (LOG_FILE != "" and LOG_FILE != PATH_ROOT):
           f = open(LOG_FILE, "a")
-          f.write(p_logstring + "\n")
+          f.write(var_log_line + "\n")
           f.close()
       else:
-        print(p_logstring)
+        print(var_log_line)
 
 def clear_log ():
     ## If file exists, delete it ##
