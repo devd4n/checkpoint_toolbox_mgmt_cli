@@ -18,7 +18,7 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.0.8
+#### DRAFT VERSION 0.0.9
 
 MANUAL = """
 [./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
@@ -42,158 +42,16 @@ import json
 import sys, getopt
 import datetime
 
-json_db = ["""
-{ "objects" : [ {
-    "uid" : "97aeb44f-9aea-11d5-bd16-0090272ccb30",
-    "name" : "AOL",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "5190"
-  }, {
-    "uid" : "97aeb3e9-9aea-11d5-bd16-0090272ccb30",
-    "name" : "AP-Defender",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "2626"
-  }, {
-    "uid" : "97aeb3ea-9aea-11d5-bd16-0090272ccb30",
-    "name" : "AT-Defender",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "2626"
-  }, {
-    "uid" : "96759a8d-aab8-43d9-bbfc-b459ce66ac87",
-    "name" : "Backage",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "411"
-  }, {
-    "uid" : "1fceea78-d378-44b4-8939-019b68f48518",
-    "name" : "BGP",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "179"
-  }, {
-    "uid" : "86077a7d-a8da-4b5b-919c-366fe91ad1da",
-    "name" : "Bionet-Setup",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "5000"
-  }, {
-    "uid" : "11da2773-a070-4f68-a3c2-9ce5dc158683",
-    "name" : "CheckPointExchangeAgent",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "18301"
-  }, {
-    "uid" : "986bad5a-94d2-4a8c-81aa-de98d3ecb5c6",
-    "name" : "Citrix_ICA",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "1494"
-  }, {
-    "uid" : "97aeb451-9aea-11d5-bd16-0090272ccb30",
-    "name" : "duplicate ConnectedOnLine",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "16384"
-  }, {
-    "uid" : "97aeb3ad-9aea-11d5-bd16-0090272ccb30",
-    "name" : "CP_Exnet_PK",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "18262"
-  } ], "from" : 1,
-  "to" : 500,
-  "total" : 999
-}
-""", """
-{ "objects" : [ {
-    "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef1",
-    "name" : "de",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "5110"
-  }, {
-    "uid" : "97aeb451-9aea-11d5-bd16-0090272ccb30",
-    "name" : "duplicate ConnectedOnLine",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef",
-      "name" : "Check Point Data"
-    },
-    "port" : "16384"
-  }, {
-    "uid" : "aaaaaaaaea-11d5-bd16-0090272ccb30",
-    "name" : "AP-Defedfdfernder",
-    "type" : "service-tcp",
-    "domain" : {
-      "domain-type" : "data domain",
-      "uid" : "a0bbbc99-adef-4ef8-bb6d-defdefdefdef1",
-      "name" : "Check Point Data"
-    },
-    "port" : "2626"
-  } ], "from" : 501,
-  "to" : 503,
-  "total" : 999
-}
-""" ]
-
 """
 ########################################################################
 #------------------------ CUSTOM PARAMETERS ---------------------------#
 ########################################################################
 """
 ## Environment Based variables
-#ACCESS_POLICIES=["Global Network", "policy2 Network"]
+ACCESS_LAYER=["Network"]
 #THREAT_POLICIES=["", ""]
 #NAT_PACKAGES=["", ""]
-RELEVANT_OBJECTS=["TCP_SERVICE"]
+RELEVANT_OBJECTS=["TCP_SERVICE", "UDP_SERVICE", "SERVICE_GROUP", "HOST", "HOST_GROUP", "ACCESS_RULE", "TAG"]
 PATH_ROOT = "./toolbox_files/"
 DATABASE_STORE_PATH = PATH_ROOT + "db.json"
 LOG_FILE= PATH_ROOT + "" # Define Log File Location if "" => it is written to stdout
@@ -210,10 +68,11 @@ OBJ_TYPES = {
     "HOST_GROUP" : { "rep" : "host_group", "cli_show" : "groups", "cli_set" : "group" },
     "TCP_SERVICE" : { "rep" : "service_tcp", "cli_show" : "services-tcp", "cli_set" : "service-tcp" },
     "UDP_SERVICE" : { "rep" : "service_udp", "cli_show" : "services-udp", "cli_set" : "service-udp" },
-    "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "hosts", "cli_set" : "host" },
+    "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "service-groups", "cli_set" : "host" },
     "ACCESS_RULE": { "rep" : "access_rule", "cli_show" : "access-rulebase", "cli_set" : "access-rule" },
-    #"THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
-    #"NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
+    "TAG" : { "rep" : "tag", "cli_show" : "tags", "cli_set" : "tag" },
+    #NOT SUPPORTED YET: "THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
+    #NOT SUPPORTED YET: "NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
 }
 LOG_LVL = {
     "FATAL" : 1,
@@ -233,7 +92,6 @@ LOG_LVL_INV = {
 }
 GLOBAL_STORAGE_DICT = {}
 SESSION_ID = ""
-TEST_RUN = 0
 
 """
 ########################################################################
@@ -246,7 +104,7 @@ def uuid_where_used (p_uuid):
     log("################################################################")
     #pull_all()
     #combined_var_data = get_all_data_of_type(OBJ_TYPES["SERVICE_GROUP"]["cli_show"])
-    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT))
+    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT), LOG_LVL["TRACE"])
     # Retrieve all used_by uuids for the given uid
     try:
         log("p_uuid: " + p_uuid)
@@ -267,15 +125,9 @@ def pull_all ():
     log("################################################################")
     var_data = {}
     for var_type in RELEVANT_OBJECTS:
-        if var_type == "ACCESS_RULE":
-            log("load Access Policy...")
-        elif var_type == "THREAT_RULE":
-            log("load Threat Policy...")
-            #for var_policy in THREAT_POLICIES:
-            #    var_data += get_all_data_of_type(TYPE_THREAT_RULE, "\"" + var_policy + "\"")
-        else:
-            log("load Objects of Type:" + var_type + "...")
-            var_data = merge_dicts(var_data, get_all_data_of_type(var_type, ""))
+        log("load Objects of Type:" + var_type + "...")
+        var_data = merge_dicts(var_data, get_all_data_of_type(var_type, ""))
+    var_data = add_used_by(var_data)
     GLOBAL_STORAGE_DICT["by_uid"] = var_data
     save()
 
@@ -286,39 +138,35 @@ def get_all_data_of_type (p_req_type, p_rulestring=""):
   #rulestring = ""    # This variable is only needed for Rule specific requests
   var_offset = 0
   var_last_item_index = 0
-  print("----------------------------___" + str(SESSION_ID))
+  if p_req_type is "ACCESS_RULE":
+      for var_layer in ACCESS_LAYER:
+          p_rulestring = " name " + "\"" + var_layer + "\""
   # how much requests are needed to retrieve all data:
-  if TEST_RUN:
-      var_object_count = json.loads(json_db[0])['total']
-  else:
-      #try:
-          var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
-          var_object_count = int(json.loads(var_json_data)['total'])
-      #except:
-        #  raise Exception('mgmt_cli retrieve data failed', 'is mgmt_cli reachable from scripts location?')
+  var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
+  var_object_count = int(json.loads(var_json_data)['total'])
   var_data_dict = { "objects" : []}
   var_count_requests = 0
   # make mgmt_cli show commands es much as needed
   while (var_last_item_index <= var_object_count):
-    if TEST_RUN:            # only be used if no mgmt_cli reachable
-        var_json_data = json_db[var_count_requests]
-    else:
-        var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
-        log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
-        var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
+    var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
+    log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
+    var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
     # Parse json data from mgmt_cli string
     var_data_dict_tmp = json.loads(var_json_data)
     log("keys_retrieved via cli: " + str(var_data_dict_tmp.keys()), LOG_LVL["DEBUG"])
     #log("var_data_dict_tmp " + str(var_data_dict_tmp))
-    for obj in var_data_dict_tmp['objects']:
-        var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
+    if p_req_type is "ACCESS_RULE":
+        for obj in var_data_dict_tmp["rulebase"]:
+            var_data_dict['objects'].append(obj)
+    else:
+        for obj in var_data_dict_tmp['objects']:
+            var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
     var_offset += MAX_OBJECT_PER_REQUEST
     var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
     var_count_requests += 1
     log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
     log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
   var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
-  var_data_dict = add_used_by(var_data_dict)
   return var_data_dict
 
 
@@ -350,6 +198,8 @@ def add_used_by (p_data_dir):
         for i_key_sub in p_data_dir:
             if not i_key is i_key_sub:
               var_string = var_data[i_key_sub]["as_string"]
+              if (i_key == "9488b349-f09a-4637-bc70-e901a5d6e0d2") and (i_key_sub == "e2cd725f-eeb7-4959-a888-58bbb5ddc906"):
+                  log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["DEBUG"])
               if i_key in var_string:
                 var_data[i_key]["used_by"].append(i_key_sub)
     return var_data
@@ -384,12 +234,15 @@ def load_local ():
 def run_bash (p_command):
   var_run = subprocess.Popen(["/bin/bash", "-c", p_command], stdout=subprocess.PIPE)
   var_output = var_run.communicate()[0].decode("utf-8")
-  log(var_output)
+  if var_output.startswith("Traceback"):
+      log(var_output, LOG_LVL["ERROR"])
+  else:
+      log(var_output, LOG_LVL["TRACE"])
   return var_output
 
 def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
     var_command = "mgmt_cli" + " " + p_action + " " + p_command + " --session-id " + p_session_uid + p_after_command + " --format json"
-    log(var_command, LOG_LVL["DEBUG"])
+    log(var_command, LOG_LVL["TRACE"])
     return run_bash(var_command)
 
 def save_data_to_file (p_file_name, p_dict):
@@ -479,7 +332,7 @@ def main (argv):
             if arg in COMMANDS:
               clear_log()
               log("deleted_old_log_file")
-              print(GLOBAL_STORAGE_DICT)
+              #print(GLOBAL_STORAGE_DICT)
               result = globals()[str(arg)](args[0])
               print(result)
       except IndexError:
