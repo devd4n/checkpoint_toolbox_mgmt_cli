@@ -18,7 +18,7 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.1.2
+#### DRAFT VERSION 0.1.3
 
 MANUAL = """
 mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p | -l] [COMMAND] [PARAMS]
@@ -32,13 +32,13 @@ mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p 
 -i | session_id   : mgmt_cli session-id to verify on which session the script should work
                       is needed otherwise currently no features can be used.
                       in future the session handling should be done by the script itself
--u | username     : username of mgmt_cli user session_id
--p | password     : password of mgmt_cli user session
+-u | !username     : ! NOT SUPPORTED YET username of mgmt_cli user session_id
+-p | !password     : ! NOT SUPPORTED YET password of mgmt_cli user session
 -c | command      : used to run a command (supported commands are shown below)
 
 COMMANDs (currently supported commands):
 """
-COMMANDS = ["uuid_where_used", "show"]
+COMMANDS = ["uuid_where_used", "show", "find_name"]
 
 import subprocess
 import time
@@ -110,10 +110,31 @@ def uuid_where_used (p_uuid):
 def show (args):
     dict = {}
     log("len:" + str(len(args)))
+    if len(args) == 0:
+        log("missing uuid for show command", LOG_LVL["ERROR"])
+        return None
+    elif len(args) == 1:
+        dict = GLOBAL_STORAGE_DICT["by_uid"][args[0]]
     for i in range(1,len(args)):
-        print
         dict[args[i]] = GLOBAL_STORAGE_DICT["by_uid"][args[0]][args[i]]
-    return dict
+    arr = ""
+    for val in dict.values():
+        arr += str(val) + ","
+    return arr
+
+def append (p_uid, p_key, p_value):
+    GLOBAL_STORAGE_DICT["by_uid"][p_uid][p_key] = p_value
+    save()
+
+def find_name (args):
+    var_name = args[0]
+    arr = ""
+    for key in GLOBAL_STORAGE_DICT["by_uid"].keys():
+        log(str(GLOBAL_STORAGE_DICT["by_uid"][key]["name"]), LOG_LVL["DETAIL-TRACE"])
+        if var_name == GLOBAL_STORAGE_DICT["by_uid"][key]["name"]:
+            arr += str(key) + ","
+    return arr
+
 
 """
 ########################################################################
@@ -182,6 +203,8 @@ def pull_all ():
                 var_data_tmp = pull_all_obj_of_type(var_type, var_rulestring)
                 for obj in var_data_tmp["rulebase"]:
                     obj["tb_access-layer"] = var_layer
+                    if not "name" in obj.keys():
+                        obj["name"] = ""
                     var_data['objects'].append(obj)
                 var_data = parse_obj_to_uid_dict(var_data, var_type)
                 var_dict = merge_dicts(var_dict, var_data)
