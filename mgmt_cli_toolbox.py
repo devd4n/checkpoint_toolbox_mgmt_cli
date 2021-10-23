@@ -18,24 +18,27 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.1.1
+#### DRAFT VERSION 0.1.2
 
 MANUAL = """
-mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p | -l] -c [COMMAND] [PARAMS]
+mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p | -l] [COMMAND] [PARAMS]
 
 
--h | --help         : show this (man) page.
--l | --local_db     : load data from file defined via DATABASE_STORE_PATH
--p | --pull         : pull data via mgmt_cli and override DATABASE_STORE_PATH
--s | --session_file : !!! not supported yet.
--i | --session_id   : mgmt_cli session-id to verify on which session the script should work
+-h | help         : show this (man) page.
+-l | local_db     : load data from file defined via DATABASE_STORE_PATH
+-p | pull         : pull data via mgmt_cli and override DATABASE_STORE_PATH
+                    -> -s or -i parameter is mandatory to use this function
+-s | session_file : mgmt_cli session-file (mgmt_cli login user <> > file)
+-i | session_id   : mgmt_cli session-id to verify on which session the script should work
                       is needed otherwise currently no features can be used.
                       in future the session handling should be done by the script itself
--c | --command      : used to run a command (supported commands are shown below)
+-u | username     : username of mgmt_cli user session_id
+-p | password     : password of mgmt_cli user session
+-c | command      : used to run a command (supported commands are shown below)
 
 COMMANDs (currently supported commands):
 """
-COMMANDS = ["uuid_where_used"]
+COMMANDS = ["uuid_where_used", "show"]
 
 import subprocess
 import time
@@ -74,6 +77,7 @@ OBJ_TYPES = {
     "ACCESS_RULE": { "rep" : "access_rule", "cli_show" : "access-rulebase", "cli_set" : "access-rule" },
     "TAG" : { "rep" : "tag", "cli_show" : "tags", "cli_set" : "tag" },
     #NOT SUPPORTED YET: "THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
+    #NOT SUPPORTED YET: "THREAT_EXCEPTION" :
     #NOT SUPPORTED YET: "NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
 }
 LOG_LVL = {
@@ -97,12 +101,19 @@ def uuid_where_used (p_uuid):
     log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT), LOG_LVL["DETAIL-TRACE"])
     # Retrieve all used_by uuids for the given uid
     try:
-        log("p_uuid: " + p_uuid)
+        log("p_uuid: " + str(p_uuid))
         used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["tb_used_by"]
         return used_by_list
     except KeyError:
         log("invalid uuid - uid" + str(p_uuid) + " can't be found in data store", LOG_LVL["ERROR"])
 
+def show (args):
+    dict = {}
+    log("len:" + str(len(args)))
+    for i in range(1,len(args)):
+        print
+        dict[args[i]] = GLOBAL_STORAGE_DICT["by_uid"][args[0]][args[i]]
+    return dict
 
 """
 ########################################################################
@@ -306,34 +317,40 @@ def main (argv):
       log("The parameters and arguments aren't correct" + LOG_LVL["ERROR"])
       print(var_man_page)
       sys.exit(2)
-    for opt, arg in opts:
-      log("opt -> " + str(opt))
-      log("arg -> " + str(arg))
-      log("args -> " + str(args))
-      if opt in ('-h', "--help"):
-        print(var_man_page)
-        sys.exit()
-      log("start")
-      create_output_folder()
-      try:
-          if opt in ("-i", "--session_id"):
-             global SESSION_ID
-             SESSION_ID = arg
-          if opt in ("-l", "--local_db"):
-              load_local()
-          elif opt in ("-p", "--pull"):
-              pull_all()
-          #elif opt in ("-s", "--session_file"):
-          #  SESSION_ID = ""
-          if opt in ("-c", "--command"):
-            if arg in COMMANDS:
-              clear_log()
-              log("deleted_old_log_file")
-              #print(GLOBAL_STORAGE_DICT)
-              result = globals()[str(arg)](args[0])
-              print(result)
-      except IndexError:
-        log("parameters and arguments are missing", LOG_LVL["ERROR"])
+    log("opts:" + str(opts))
+    log("args:" + str(args))
+    var_options = dict(opts)
+    opt_keys = var_options.keys()
+    if "-h" in opt_keys:
+      print(var_man_page)
+      sys.exit()
+    if "-i" in opt_keys:
+       global SESSION_ID
+       SESSION_ID = var_options["-i"]
+    elif "-s" in opt_keys:
+        try:
+            var_session_file = json.load(open(var_options["-s"]))
+        except:
+            var_session_file = {}
+            var_file = open(var_options["-s"])
+            var_session_file["sid"] = var_file.read().split("\"")[3]
+        SESSION_ID = var_session_file["sid"]
+        log("session-id loaded from session file: " + SESSION_ID)
+    # Create directories for Logs and Output Files
+    create_output_folder()
+    log("delete_old_log_file")
+    clear_log()
+    if "-l" in opt_keys:
+        load_local()
+    elif "-p" in opt_keys:
+        pull_all()
+    if len(args) > 0:
+        if args[0] in COMMANDS:
+            command = args.pop(0)
+            log("function:" + str(command))
+            log("params:" + str(args))
+            result = globals()[str(command)](args)
+            print(result)
       #except BaseException as err:
         #log(str("FATAL ERROR: " + str(err)), LOG_LVL["FATAL"])
         #log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
