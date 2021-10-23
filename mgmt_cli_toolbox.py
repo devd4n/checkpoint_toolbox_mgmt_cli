@@ -18,10 +18,11 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.1.0
+#### DRAFT VERSION 0.1.1
 
 MANUAL = """
-[./mgmt_cli_toolbox.py | mgmt_cli_toolbox.py] [-i <mgmt_cli_session_id> | -s mgmt_cli_session_file] [COMMAND] [PARAMS]
+mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p | -l] -c [COMMAND] [PARAMS]
+
 
 -h | --help         : show this (man) page.
 -l | --local_db     : load data from file defined via DATABASE_STORE_PATH
@@ -30,6 +31,7 @@ MANUAL = """
 -i | --session_id   : mgmt_cli session-id to verify on which session the script should work
                       is needed otherwise currently no features can be used.
                       in future the session handling should be done by the script itself
+-c | --command      : used to run a command (supported commands are shown below)
 
 COMMANDs (currently supported commands):
 """
@@ -62,35 +64,25 @@ LOG_LEVEL="TRACE"
 ########################################################################
 """
 ## This Parameters should only be changed if its really clear what is means
-MAX_OBJECT_PER_REQUEST=500
+MAX_OBJECT_PER_REQUEST=500      # This value is given by checkpoint -> Doku of Mgmt API
 OBJ_TYPES = {
     "HOST" : { "rep" : "host", "cli_show" : "hosts", "cli_set": "host" },
     "HOST_GROUP" : { "rep" : "host_group", "cli_show" : "groups", "cli_set" : "group" },
     "TCP_SERVICE" : { "rep" : "service_tcp", "cli_show" : "services-tcp", "cli_set" : "service-tcp" },
     "UDP_SERVICE" : { "rep" : "service_udp", "cli_show" : "services-udp", "cli_set" : "service-udp" },
-    "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "service-groups", "cli_set" : "host" },
+    "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "service-groups", "cli_set" : "service-group" },
     "ACCESS_RULE": { "rep" : "access_rule", "cli_show" : "access-rulebase", "cli_set" : "access-rule" },
     "TAG" : { "rep" : "tag", "cli_show" : "tags", "cli_set" : "tag" },
     #NOT SUPPORTED YET: "THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
     #NOT SUPPORTED YET: "NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
 }
 LOG_LVL = {
-    "FATAL" : 1,
-    "ERROR" : 2,
-    "WARNING" : 3,
-    "INFO" : 7,
-    "DEBUG" : 8,
-    "TRACE" : 9,
-    "DETAIL-TRACE" : 10,
+    "FATAL" : 1, "ERROR" : 2, "WARNING" : 3, "INFO" : 7, "DEBUG" : 8,
+    "TRACE" : 9, "DETAIL-TRACE" : 10,
 }
 LOG_LVL_INV = {
-    1 : "FATAL",
-    2 : "ERROR",
-    3 : "WARNING",
-    7 : "INFO",
-    8 : "DEBUG",
-    9 : "TRACE",
-    10 : "DETAIL-TRACE",
+    1 : "FATAL", 2 : "ERROR", 3 : "WARNING", 7 : "INFO", 8 : "DEBUG",
+    9 : "TRACE", 10 : "DETAIL-TRACE",
 }
 GLOBAL_STORAGE_DICT = {}
 SESSION_ID = ""
@@ -106,7 +98,7 @@ def uuid_where_used (p_uuid):
     # Retrieve all used_by uuids for the given uid
     try:
         log("p_uuid: " + p_uuid)
-        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["used_by"]
+        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["tb_used_by"]
         return used_by_list
     except KeyError:
         log("invalid uuid - uid" + str(p_uuid) + " can't be found in data store", LOG_LVL["ERROR"])
@@ -117,53 +109,6 @@ def uuid_where_used (p_uuid):
 #---------------------- PRIVATE METHODS -------------------------------#
 ########################################################################
 """
-def pull_all ():
-    log("pull_all (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
-    var_data = {}
-    for var_type in RELEVANT_OBJECTS:
-        log("load Objects of Type:" + var_type + "...")
-        var_data = merge_dicts(var_data, get_all_data_of_type(var_type, ""))
-    var_data = add_used_by(var_data)
-    GLOBAL_STORAGE_DICT["by_uid"] = var_data
-    save()
-
-def get_all_data_of_type (p_req_type, p_rulestring=""):
-  log("get_all_data_of_type (" + p_req_type + "," + p_rulestring + ")", LOG_LVL["TRACE"], True)
-  #rulestring = ""    # This variable is only needed for Rule specific requests
-  var_offset = 0
-  var_last_item_index = 0
-  if p_req_type is "ACCESS_RULE":
-      for var_layer in ACCESS_LAYER:
-          p_rulestring = " name " + "\"" + var_layer + "\""
-  # how much requests are needed to retrieve all data:
-  var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
-  var_object_count = int(json.loads(var_json_data)['total'])
-  var_data_dict = { "objects" : []}
-  var_count_requests = 0
-  # make mgmt_cli show commands es much as needed
-  while (var_last_item_index <= var_object_count):
-    var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
-    log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
-    var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
-    # Parse json data from mgmt_cli string
-    var_data_dict_tmp = json.loads(var_json_data)
-    log("keys_retrieved via cli: " + str(var_data_dict_tmp.keys()), LOG_LVL["DEBUG"])
-    #log("var_data_dict_tmp " + str(var_data_dict_tmp))
-    if p_req_type is "ACCESS_RULE":
-        for obj in var_data_dict_tmp["rulebase"]:
-            var_data_dict['objects'].append(obj)
-    else:
-        for obj in var_data_dict_tmp['objects']:
-            var_data_dict['objects'].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
-    var_offset += MAX_OBJECT_PER_REQUEST
-    var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
-    var_count_requests += 1
-    log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
-    log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
-  var_data_dict = parse_obj_to_uid_dict(var_data_dict, p_req_type)
-  return var_data_dict
-
-
 
 def parse_obj_to_uid_dict(p_dict, p_type):
   log("parse_obj_to_uid_dict (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
@@ -171,10 +116,10 @@ def parse_obj_to_uid_dict(p_dict, p_type):
   for obj in p_dict["objects"]:
     log("uid " + obj["uid"], LOG_LVL["DETAIL-TRACE"])
     var_uid = str(obj["uid"])
-    var_new_dict[var_uid] = {}
-    var_new_dict[var_uid]["obj"] = obj
-    var_new_dict[var_uid]["type"] = p_type
-    var_new_dict[var_uid]["as_string"] = str(obj)
+    var_new_dict[var_uid] = obj
+    var_new_dict[var_uid]["tb_type"] = p_type
+    #var_new_dict[var_uid]["layer"] = p_layer
+    var_new_dict[var_uid]["tb_as_string"] = str(obj)
   log("parsed new dict " + str(var_new_dict), LOG_LVL["DETAIL-TRACE"])
   return var_new_dict
 
@@ -183,13 +128,13 @@ def add_used_by (p_data_dir):
     log("add_used_by (" + "p_data_dir" + "," + "" + ")", LOG_LVL["TRACE"], True)
     var_data = p_data_dir
     for i_key in p_data_dir:
-        var_data[i_key]["used_by"] = []
+        var_data[i_key]["tb_used_by"] = []
         for i_key_sub in p_data_dir:
             if not i_key is i_key_sub:
-              var_string = var_data[i_key_sub]["as_string"]
+              var_string = var_data[i_key_sub]["tb_as_string"]
               if i_key in var_string:
                 log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["TRACE"])
-                var_data[i_key]["used_by"].append(i_key_sub)
+                var_data[i_key]["tb_used_by"].append(i_key_sub)
     return var_data
 
 def object_by_uid (p_uid):
@@ -210,6 +155,66 @@ def load_local ():
 
 """
 ########################################################################
+#------------------------ API-Pull Functions --------------------------#
+########################################################################
+"""
+def pull_all ():
+    log("pull_all (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
+    var_dict = {}
+    for var_type in RELEVANT_OBJECTS:
+        var_data = {}
+        var_data["objects"] = []
+        log("load Objects of Type:" + var_type + "...")
+        if var_type == "ACCESS_RULE":
+            for var_layer in ACCESS_LAYER:
+                var_rulestring = " name " + "\"" + var_layer + "\""
+                var_data_tmp = pull_all_obj_of_type(var_type, var_rulestring)
+                for obj in var_data_tmp["rulebase"]:
+                    obj["tb_access-layer"] = var_layer
+                    var_data['objects'].append(obj)
+                var_data = parse_obj_to_uid_dict(var_data, var_type)
+                var_dict = merge_dicts(var_dict, var_data)
+        else:
+            var_data_tmp = pull_all_obj_of_type(var_type, "")
+            for obj in var_data_tmp['objects']:
+                var_data["objects"].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
+            var_data = parse_obj_to_uid_dict(var_data, var_type)
+            var_dict = merge_dicts(var_dict, var_data)
+    var_dict = add_used_by(var_dict)
+    GLOBAL_STORAGE_DICT["by_uid"] = var_dict
+    save()
+
+def pull_all_obj_of_type (p_req_type, p_rulestring=""):
+  log("pull_all_obj_of_type (" + p_req_type + "," + p_rulestring + ")", LOG_LVL["TRACE"], True)
+  #rulestring = ""    # This variable is only needed for Rule specific requests
+  var_offset = 0
+  var_last_item_index = 0
+  # how much requests are needed to retrieve all data:
+  var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
+  # TODO: Remove log line
+  log("json_data: " + str(str(var_json_data)), LOG_LVL["DEBUG"])
+  var_object_count = int(json.loads(var_json_data)['total'])
+  var_data_dict = { "objects" : []}
+  var_count_requests = 0
+  # make mgmt_cli show commands es much as needed
+  while (var_last_item_index <= var_object_count):
+    var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
+    log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
+    var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
+    # Parse json data from mgmt_cli string
+    var_data_dict_tmp = json.loads(var_json_data)
+    log("keys_retrieved via cli: " + str(var_data_dict_tmp.keys()), LOG_LVL["DEBUG"])
+    #log("var_data_dict_tmp " + str(var_data_dict_tmp))
+    var_offset += MAX_OBJECT_PER_REQUEST
+    var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
+    var_count_requests += 1
+    log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
+    log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
+  return var_data_dict_tmp
+
+
+"""
+########################################################################
 #------------------------ HELPERS -------------------------------------#
 ########################################################################
 """
@@ -225,7 +230,12 @@ def run_bash (p_command):
 def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
     var_command = "mgmt_cli" + " " + p_action + " " + p_command + " --session-id " + p_session_uid + p_after_command + " --format json"
     log(var_command, LOG_LVL["TRACE"])
-    return run_bash(var_command)
+    var_response = run_bash(var_command)
+    # Raise an exception if mgmt_cli responded with an error
+    if "\"code\"" in var_response:
+        var_err = Exception(var_response)
+        raise var_err
+    return var_response
 
 def save_data_to_file (p_file_name, p_dict):
  json.dump( p_dict, open( p_file_name, 'w' ) )
