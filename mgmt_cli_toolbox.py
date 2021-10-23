@@ -18,7 +18,7 @@
     Author: https://github.com/devd4n
 """
 
-#### DRAFT VERSION 0.1.3
+#### DRAFT VERSION 0.2.0
 
 MANUAL = """
 mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p | -l] [COMMAND] [PARAMS]
@@ -37,6 +37,9 @@ mgmt_cli_toolbox.py [-i <mgmt_cli_session_id> | -s <mgmt_cli_session_file>] [-p 
 -c | command      : used to run a command (supported commands are shown below)
 
 COMMANDs (currently supported commands):
+uuid_where_used <uid>
+show <uid> <key1> <key2> <key3> ...
+find_name <name>
 """
 COMMANDS = ["uuid_where_used", "show", "find_name"]
 
@@ -56,7 +59,7 @@ import datetime
 ACCESS_LAYER=["Network"]
 #THREAT_POLICIES=["", ""]
 #NAT_PACKAGES=["", ""]
-RELEVANT_OBJECTS=["TCP_SERVICE", "UDP_SERVICE", "SERVICE_GROUP", "HOST", "HOST_GROUP", "ACCESS_RULE", "TAG"]
+RELEVANT_OBJECTS=["TCP_SERVICE", "UDP_SERVICE", "SERVICE_GROUP", "HOST", "HOST_GROUP", "ACCESS_RULE", "TAG", "TIME", "NETWORK"]
 PATH_ROOT = "./toolbox_files/"
 DATABASE_STORE_PATH = PATH_ROOT + "db.json"
 LOG_FILE= PATH_ROOT + "" # Define Log File Location if "" => it is written to stdout
@@ -76,6 +79,8 @@ OBJ_TYPES = {
     "SERVICE_GROUP" : { "rep" : "service_group", "cli_show" : "service-groups", "cli_set" : "service-group" },
     "ACCESS_RULE": { "rep" : "access_rule", "cli_show" : "access-rulebase", "cli_set" : "access-rule" },
     "TAG" : { "rep" : "tag", "cli_show" : "tags", "cli_set" : "tag" },
+    "TIME" : { "rep" : "time", "cli_show" : "times", "cli_set" : "time" },
+    "NETWORK" : { "rep" : "network", "cli_show" : "networks", "cli_set" : "network" }
     #NOT SUPPORTED YET: "THREAT_PREV_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
     #NOT SUPPORTED YET: "THREAT_EXCEPTION" :
     #NOT SUPPORTED YET: "NAT_RULE" : { "rep" : "host", "cli_get", "hosts", "cli_set", "host" },
@@ -96,44 +101,48 @@ SESSION_ID = ""
 #---------------------- API METHODS -----------------------------------#
 ########################################################################
 """
-def uuid_where_used (p_uuid):
-    log("uuid_where_used (" + "" + "," + "" + ")", LOG_LVL["TRACE"], True)
-    log("combined_var_data with uids as keys and used by params" + str(GLOBAL_STORAGE_DICT), LOG_LVL["DETAIL-TRACE"])
+def uuid_where_used (args):
+    log("uuid_where_used (" + str(args) + ")", LOG_LVL["TRACE"], True)
     # Retrieve all used_by uuids for the given uid
+    var_uid = args[0]
     try:
-        log("p_uuid: " + str(p_uuid))
-        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][p_uuid]["tb_used_by"]
+        log("var_uid: " + str(var_uid))
+        used_by_list = GLOBAL_STORAGE_DICT["by_uid"][var_uid]["tb_used_by"]
         return used_by_list
     except KeyError:
-        log("invalid uuid - uid" + str(p_uuid) + " can't be found in data store", LOG_LVL["ERROR"])
+        log("invalid uuid: " + str(var_uid) + " - can't be found", LOG_LVL["ERROR"])
 
 def show (args):
+    log("show (" + str(args) + ")", LOG_LVL["TRACE"], True)
     dict = {}
-    log("len:" + str(len(args)))
+    var_res_list = ""
+    # show keys or full object from given UID
     if len(args) == 0:
         log("missing uuid for show command", LOG_LVL["ERROR"])
         return None
     elif len(args) == 1:
         dict = GLOBAL_STORAGE_DICT["by_uid"][args[0]]
-    for i in range(1,len(args)):
-        dict[args[i]] = GLOBAL_STORAGE_DICT["by_uid"][args[0]][args[i]]
-    arr = ""
+    else:
+        for i in range(1,len(args)):
+            dict[args[i]] = GLOBAL_STORAGE_DICT["by_uid"][args[0]][args[i]]
     for val in dict.values():
-        arr += str(val) + ","
-    return arr
+        var_res_list += str(val) + ","
+    return var_res_list
 
 def append (p_uid, p_key, p_value):
+    log("append (" + str(p_uuid) + "," + str(p_key) + "," + str(p_value) + ")", LOG_LVL["TRACE"], True)
     GLOBAL_STORAGE_DICT["by_uid"][p_uid][p_key] = p_value
     save()
 
 def find_name (args):
+    log("find_name (" + str(args) + ")", LOG_LVL["TRACE"], True)
     var_name = args[0]
-    arr = ""
+    var_res_list = ""
     for key in GLOBAL_STORAGE_DICT["by_uid"].keys():
         log(str(GLOBAL_STORAGE_DICT["by_uid"][key]["name"]), LOG_LVL["DETAIL-TRACE"])
         if var_name == GLOBAL_STORAGE_DICT["by_uid"][key]["name"]:
-            arr += str(key) + ","
-    return arr
+            var_res_list += str(key) + ","
+    return var_res_list
 
 
 """
@@ -150,7 +159,6 @@ def parse_obj_to_uid_dict(p_dict, p_type):
     var_uid = str(obj["uid"])
     var_new_dict[var_uid] = obj
     var_new_dict[var_uid]["tb_type"] = p_type
-    #var_new_dict[var_uid]["layer"] = p_layer
     var_new_dict[var_uid]["tb_as_string"] = str(obj)
   log("parsed new dict " + str(var_new_dict), LOG_LVL["DETAIL-TRACE"])
   return var_new_dict
@@ -162,10 +170,10 @@ def add_used_by (p_data_dir):
     for i_key in p_data_dir:
         var_data[i_key]["tb_used_by"] = []
         for i_key_sub in p_data_dir:
-            if not i_key is i_key_sub:
+            if i_key != i_key_sub:
               var_string = var_data[i_key_sub]["tb_as_string"]
               if i_key in var_string:
-                log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["TRACE"])
+                log("where_used_finding:" + i_key + " - used by -> " + i_key_sub, LOG_LVL["DETAIL-TRACE"])
                 var_data[i_key]["tb_used_by"].append(i_key_sub)
     return var_data
 
@@ -206,12 +214,15 @@ def pull_all ():
                     if not "name" in obj.keys():
                         obj["name"] = ""
                     var_data['objects'].append(obj)
+                log("retrieved data count: " + str(len(var_data['objects'])))
                 var_data = parse_obj_to_uid_dict(var_data, var_type)
                 var_dict = merge_dicts(var_dict, var_data)
         else:
             var_data_tmp = pull_all_obj_of_type(var_type, "")
             for obj in var_data_tmp['objects']:
-                var_data["objects"].append(obj) # Hint Duplicates can be occur - no errors [[FIX]]
+                # TODO: Duplicates can be occur - Check this - no errors [[FIX]]
+                var_data["objects"].append(obj)
+            log("retrieved data count: " + str(len(var_data['objects'])))
             var_data = parse_obj_to_uid_dict(var_data, var_type)
             var_dict = merge_dicts(var_dict, var_data)
     var_dict = add_used_by(var_dict)
@@ -225,26 +236,18 @@ def pull_all_obj_of_type (p_req_type, p_rulestring=""):
   var_last_item_index = 0
   # how much requests are needed to retrieve all data:
   var_json_data = run_mgmt_cli(SESSION_ID, "show", (OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " limit 1"), "")
-  # TODO: Remove log line
-  log("json_data: " + str(str(var_json_data)), LOG_LVL["DEBUG"])
   var_object_count = int(json.loads(var_json_data)['total'])
-  var_data_dict = { "objects" : []}
-  var_count_requests = 0
   # make mgmt_cli show commands es much as needed
   while (var_last_item_index <= var_object_count):
     var_mgmt_string = OBJ_TYPES[p_req_type]["cli_show"] + p_rulestring + " details-level full limit " + str(MAX_OBJECT_PER_REQUEST) + " offset " + str(var_offset)
-    log("mgmt_cli " + "show" + " " + var_mgmt_string, LOG_LVL["DEBUG"])
     var_json_data = run_mgmt_cli(SESSION_ID, "show", var_mgmt_string, "")
     # Parse json data from mgmt_cli string
-    var_data_dict_tmp = json.loads(var_json_data)
-    log("keys_retrieved via cli: " + str(var_data_dict_tmp.keys()), LOG_LVL["DEBUG"])
-    #log("var_data_dict_tmp " + str(var_data_dict_tmp))
+    var_all_obj_of_type = json.loads(var_json_data)
+    log("keys_retrieved: " + str(var_all_obj_of_type.keys()), LOG_LVL["DEBUG"])
     var_offset += MAX_OBJECT_PER_REQUEST
     var_last_item_index = var_last_item_index + MAX_OBJECT_PER_REQUEST
-    var_count_requests += 1
-    log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"])
-    log("retrieved data count: " + str(len(var_data_dict['objects'])), LOG_LVL["DEBUG"])
-  return var_data_dict_tmp
+    log("announced data count: " + str(var_object_count), LOG_LVL["DEBUG"], LOG_LVL["DEBUG"])
+  return var_all_obj_of_type
 
 
 """
@@ -268,6 +271,9 @@ def run_mgmt_cli (p_session_uid, p_action, p_command, p_after_command):
     # Raise an exception if mgmt_cli responded with an error
     if "\"code\"" in var_response:
         var_err = Exception(var_response)
+        raise var_err
+    elif "Failed to parse command line parameters." in var_response or "mgmt_cli command-name " in var_response:
+        var_err = Exception("failed mgmt_cli parameters - check session id!\n\n")
         raise var_err
     return var_response
 
@@ -335,7 +341,7 @@ def merge_dicts(*dict_args):
 def main (argv):
     var_man_page = MANUAL + str(COMMANDS)
     try:
-      opts, args = getopt.getopt(argv,"hlpi:s:c:",['help', 'session_id=', 'session_file=', 'command='])
+      opts, args = getopt.getopt(argv,"hlpi:s:c:",[])
     except getopt.GetoptError:
       log("The parameters and arguments aren't correct" + LOG_LVL["ERROR"])
       print(var_man_page)
@@ -376,7 +382,8 @@ def main (argv):
             print(result)
       #except BaseException as err:
         #log(str("FATAL ERROR: " + str(err)), LOG_LVL["FATAL"])
-        #log("The Script crashed pls check manpage with -h option", LOG_LVL["FATAL"])
+        #log("The Script crashed pls check manpage with -h option",
+        #    LOG_LVL["FATAL"])
         #sys.exit(2)
 
 if __name__ == "__main__":
