@@ -15,5 +15,8 @@ This python script is used to load the Object and Policies to a Directory and th
 - Error Handling in specific cases
 - Logging into File or into stdout possible
 
+### Next Steps/Fixes
+- var_last_item_index in pull function is not needed => Same as var_offset...
+
 
 ... to be continued
